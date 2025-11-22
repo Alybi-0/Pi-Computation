@@ -1,0 +1,55 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "C/C++ build g++.exe",
+      "type": "cppbuild",
+      "command": "g++",
+      "args": [
+        "-std=c++23",
+        "-g",
+        "${file}",
+        "-o",
+        "${fileBasenameNoExtension}.exe",
+        "-O3",
+        "-static-libgcc",
+        "-static-libstdc++",
+        "-march=native",
+        "-mtune=native",
+        "-ffast-math",
+        "-funroll-loops",
+        "-fomit-frame-pointer",
+        "-Wmissing-include-dirs",
+        "-Wno-unused-variable",
+        "-flto",
+        "-Wall",
+        "-Werror",
+        "-Wno-unused-but-set-variable",
+        "-fopenmp",
+        "-lgomp",
+        "-I${workspaceFolder}/Dependencies/GLFW/include",
+        "-L${workspaceFolder}/Dependencies/GLFW/lib-w64",
+        "-I${workspaceFolder}/Dependencies/raylib/src",
+        "-L${workspaceFolder}/Dependencies/raylib",
+        "-Wl,-Bstatic",
+        "-lraylib",
+        "-lopengl32",
+        "-lglfw3",
+        "-lwinmm",
+        "-lgdi32",
+        "-lm",
+        "-lwinmm",
+        "-lkernel32",
+        "-lstdc++",
+        "-lpthread",
+        "-Wl,-Bdynamic"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gcc"],
+      "detail": "Compiled with g++"
+    }
+  ]
+}
