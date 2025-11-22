@@ -13,7 +13,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-const uint8_t used_cores = 2U;
+const uint_fast8_t used_cores = 2U;
 
 u_lli drops(const u_lli& RAIN, const u_li& R, uint64_t* seeds);
 d_li calcPI(u_lli A, u_lli C);
@@ -22,8 +22,8 @@ void DisplayDrops(std::vector<Drop>& rain, const Vector2 squarePos, int* data, s
 
 int main(int argc, char** argv)
 {
-    u_lli RAIN = 2000000000;
-    u_li R = 1000000000;
+    u_lli RAIN = 8000000000;
+    u_li R = 3000000000;
     if(argc > 1)
     {
         std::stringstream(argv[1]) >> RAIN;
@@ -33,36 +33,38 @@ int main(int argc, char** argv)
         std::stringstream(argv[2]) >> R;
     }
 
-    size_t d_rain = 40000;
+    size_t d_rain = 20000;
     std::vector<Drop> rainVec;
     int data[] = {1400, 900, 700};
     const Vector2 squarePos = SetDisplay(rainVec, data, d_rain);
 
-    std::future<void> disD = std::async(std::launch::async, DisplayDrops, std::ref(rainVec), squarePos, data, d_rain);
+    std::future<void> disD = std::async(DisplayDrops, std::ref(rainVec), squarePos, data, d_rain);
 
     int thrds = omp_get_max_threads();
     uint64_t* seeds = allocate<uint64_t>(thrds);
     std::mt19937_64 seeder(std::random_device{}());
     for(int l = 0; l < thrds; l++)
     {
-        seeds[l] = seeder() ^ (0x9e3779b97f4a7c15ULL + (uint64_t)l * 0x9e3779b97f4a7c15ULL);
+        seeds[l] = seeder() ^ (0x9e3779b97f4a7c15ULL + (uint_fast64_t)l * 0x9e3779b97f4a7c15ULL);
     }
 
     omp_set_nested(1);
-    omp_set_num_threads(omp_get_max_threads()/used_cores - 1);
+    omp_set_num_threads(omp_get_max_threads()/used_cores);
 
     std::future<u_lli>* Drps = allocate<std::future<u_lli>>(used_cores);
     auto start = std::chrono::high_resolution_clock::now();
 
-    for(uint8_t i = 0; i < used_cores; i++)
+    for(uint_fast8_t i = 0; i < used_cores; i++)
     {
         Drps[i] = std::async(std::launch::async, drops, RAIN/used_cores, R, seeds);
     }
+
     u_lli C = 0LLU;
     for(uint8_t l = 0; l < used_cores; l++)
     {
         C += Drps[l].get();
     }
+    
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> time = end - start;
 
@@ -80,7 +82,7 @@ u_lli drops(const u_lli& RAIN, const u_li& R, uint64_t* seeds)
 {
     u_lli dC = 0;
 
-    uint64_t outer_core = std::hash<std::thread::id>{}(std::this_thread::get_id());
+    uint_fast64_t outer_core = std::hash<std::thread::id>{}(std::this_thread::get_id());
     #pragma omp parallel reduction(+:dC)
     {
         int thrd_i = omp_get_thread_num();
@@ -93,7 +95,7 @@ u_lli drops(const u_lli& RAIN, const u_li& R, uint64_t* seeds)
         for(u_lli i = 0; i < RAIN; i++)
         {
             x = dist(nR);
-            y = dist(nR);
+            y = dist(nR);   
             r = hypotenus(x, y);
             if(r < (d_li)R) dC++;
         }
