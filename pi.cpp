@@ -1,6 +1,6 @@
 #include <iostream>
 #include <future>
-#include <random>
+#include <pcg_random.hpp>
 #include <sstream>
 #include <chrono>
 #include <raylib.h>
@@ -15,7 +15,7 @@
 
 const uint_fast8_t used_cores = 2U;
 
-u_lli drops(const u_lli& RAIN, const u_li& R, uint64_t* seeds);
+u_lli drops(const u_lli& RAIN, const u_li& R, const __uint128_t& R2, uint64_t* seeds);
 d_li calcPI(u_lli A, u_lli C);
 const Vector2 SetDisplay(std::vector<Drop>& rain, int* data, size_t vecSize);
 void DisplayDrops(std::vector<Drop>& rain, const Vector2 squarePos, int* data, size_t vecSize);
@@ -32,18 +32,19 @@ int main(int argc, char** argv)
     {
         std::stringstream(argv[2]) >> R;
     }
+    __uint128_t R2 = (__uint128_t)R * (__uint128_t)R;
 
-    size_t d_rain = 20000;
+    /* size_t d_rain = 20000;
     std::vector<Drop> rainVec;
     int data[] = {1400, 900, 700};
     const Vector2 squarePos = SetDisplay(rainVec, data, d_rain);
 
     std::future<void> disD = std::async(DisplayDrops, std::ref(rainVec), squarePos, data, d_rain);
-
+ */
     int thrds = omp_get_max_threads();
     uint64_t* seeds = allocate<uint64_t>(thrds);
-    std::mt19937_64 seeder(std::random_device{}());
-    for(int l = 0; l < thrds; l++)
+    pcg64 seeder(std::random_device{}());
+    for(int l = 0; l < thrds * 2; l++)
     {
         seeds[l] = seeder() ^ (0x9e3779b97f4a7c15ULL + (uint_fast64_t)l * 0x9e3779b97f4a7c15ULL);
     }
@@ -56,7 +57,7 @@ int main(int argc, char** argv)
 
     for(uint_fast8_t i = 0; i < used_cores; i++)
     {
-        Drps[i] = std::async(std::launch::async, drops, RAIN/used_cores, R, seeds);
+        Drps[i] = std::async(std::launch::async, drops, RAIN/used_cores, R, R2, seeds);
     }
 
     u_lli C = 0LLU;
@@ -70,7 +71,7 @@ int main(int argc, char** argv)
 
     d_li C_PI = calcPI(RAIN, C);
     double err = (1-(M_PI/C_PI))*100.0;
-    printf("Time: %.5f, RAIN: %llu, R: %lu, Pi is: %.12Lf, Error: %.8f%%\n", time.count(), RAIN, R, C_PI, std::fabs(err));
+    printf("Time: %.5fs, RAIN: %llu, R: %lu, Pi is: %.12Lf, Error: %.8f%%\n", time.count(), RAIN, R, C_PI, std::fabs(err));
     
     delete[] Drps;
     delete[] seeds;
@@ -78,26 +79,26 @@ int main(int argc, char** argv)
     std::cout << "\033c" << std::flush;
 }
 
-u_lli drops(const u_lli& RAIN, const u_li& R, uint64_t* seeds)
+u_lli drops(const u_lli& RAIN, const u_li& R, const __uint128_t& R2, uint64_t* seeds)
 {
     u_lli dC = 0;
 
     uint_fast64_t outer_core = std::hash<std::thread::id>{}(std::this_thread::get_id());
+    std::uniform_int_distribution<u_li> dist(0, R);
+    
     #pragma omp parallel reduction(+:dC)
     {
         int thrd_i = omp_get_thread_num();
-        std::mt19937_64 nR(seeds[thrd_i]*outer_core + thrd_i);
-        std::uniform_int_distribution<u_li> dist(0, R);
-        u_li x, y;
-        d_li r;
+        pcg64_unique nR(seeds[outer_core * used_cores + thrd_i]*outer_core + thrd_i);
+        nR.advance(thrd_i < 32);
+        __uint128_t x, y;
         
         #pragma omp for simd schedule(static)
         for(u_lli i = 0; i < RAIN; i++)
         {
             x = dist(nR);
             y = dist(nR);   
-            r = hypotenus(x, y);
-            if(r < (d_li)R) dC++;
+            if((x * x + y * y) < R2) dC++;
         }
     }
 
@@ -172,4 +173,4 @@ void DisplayDrops(std::vector<Drop>& rain, const Vector2 squarePos, int* data, s
     CloseWindow();
     //std::cin.get();
     //std::cout << "\033c" << std::flush;
-}
+} 
