@@ -172,6 +172,4 @@ void DisplayDrops(std::vector<Drop>& rain, const Vector2 squarePos, int* data, s
 
     printf("%.8f\n", dTime);
     CloseWindow();
-    //std::cin.get();
-    //std::cout << "\033c" << std::flush;
 } 
