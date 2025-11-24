@@ -15,14 +15,14 @@
 
 const uint_fast8_t used_cores = 2U;
 
-u_lli drops(const u_lli& RAIN, const u_li& R, const __uint128_t& R2, uint64_t* seeds);
+u_lli drops(const u_lli& RAIN, const u_li& R, const __uint128_t& R2, uint64_t* seeds, const uint_fast8_t& l);
 d_li calcPI(u_lli A, u_lli C);
 const Vector2 SetDisplay(std::vector<Drop>& rain, int* data, size_t vecSize);
 void DisplayDrops(std::vector<Drop>& rain, const Vector2 squarePos, int* data, size_t vecSize);
 
 int main(int argc, char** argv)
 {
-    u_lli RAIN = 8000000000;
+    u_lli RAIN = 800000000;
     u_li R = 3000000000;
     if(argc > 1)
     {
@@ -34,15 +34,15 @@ int main(int argc, char** argv)
     }
     __uint128_t R2 = (__uint128_t)R * (__uint128_t)R;
 
-    /* size_t d_rain = 20000;
+    size_t d_rain = 20000;
     std::vector<Drop> rainVec;
     int data[] = {1400, 900, 700};
     const Vector2 squarePos = SetDisplay(rainVec, data, d_rain);
 
     std::future<void> disD = std::async(DisplayDrops, std::ref(rainVec), squarePos, data, d_rain);
- */
+
     int thrds = omp_get_max_threads();
-    uint64_t* seeds = allocate<uint64_t>(thrds);
+    uint64_t* seeds = allocate<uint64_t>(thrds * 2);
     pcg64 seeder(std::random_device{}());
     for(int l = 0; l < thrds * 2; l++)
     {
@@ -57,10 +57,10 @@ int main(int argc, char** argv)
 
     for(uint_fast8_t i = 0; i < used_cores; i++)
     {
-        Drps[i] = std::async(std::launch::async, drops, RAIN/used_cores, R, R2, seeds);
+        Drps[i] = std::async(std::launch::async, drops, RAIN/used_cores, R, R2, seeds, i);
     }
 
-    u_lli C = 0LLU;
+    u_lli C = 0ULL;
     for(uint8_t l = 0; l < used_cores; l++)
     {
         C += Drps[l].get();
@@ -79,9 +79,9 @@ int main(int argc, char** argv)
     std::cout << "\033c" << std::flush;
 }
 
-u_lli drops(const u_lli& RAIN, const u_li& R, const __uint128_t& R2, uint64_t* seeds)
+u_lli drops(const u_lli& RAIN, const u_li& R, const __uint128_t& R2, uint64_t* seeds, const uint_fast8_t& l)
 {
-    u_lli dC = 0;
+    u_lli dC = 0ULL;
 
     uint_fast64_t outer_core = std::hash<std::thread::id>{}(std::this_thread::get_id());
     std::uniform_int_distribution<u_li> dist(0, R);
@@ -89,15 +89,16 @@ u_lli drops(const u_lli& RAIN, const u_li& R, const __uint128_t& R2, uint64_t* s
     #pragma omp parallel reduction(+:dC)
     {
         int thrd_i = omp_get_thread_num();
-        pcg64_unique nR(seeds[outer_core * used_cores + thrd_i]*outer_core + thrd_i);
-        nR.advance(thrd_i < 32);
+        pcg64_unique nR(seeds[l * used_cores + thrd_i]*outer_core + thrd_i);
+        nR.advance(thrd_i*1ULL << 48);
+
         __uint128_t x, y;
         
         #pragma omp for simd schedule(static)
         for(u_lli i = 0; i < RAIN; i++)
         {
             x = dist(nR);
-            y = dist(nR);   
+            y = dist(nR);
             if((x * x + y * y) < R2) dC++;
         }
     }
